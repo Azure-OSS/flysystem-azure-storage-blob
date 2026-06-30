@@ -58,6 +58,11 @@ $filesystem->delete('docs/hello.txt');
 
 You can read the documentation [here](https://php-oss-for-azure.github.io/category/storage-blob-flysystem).
 
+## Migration Guide
+
+Migrating from `league/flysystem-azure-blob-storage`?
+[Migrate from league/flysystem-azure-blob-storage](https://php-oss-for-azure.github.io/storage-blob-flysystem/migrate-from-league-flysystem-azure-blob-storage).
+
 ## Related packages
 
 - **[azure-oss/storage](https://packagist.org/packages/azure-oss/storage)** — Meta package for the Storage SDKs
