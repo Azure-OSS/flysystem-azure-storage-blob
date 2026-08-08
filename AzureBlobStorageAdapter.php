@@ -6,6 +6,7 @@ namespace AzureOss\Storage\BlobFlysystem;
 
 use AzureOss\Storage\Blob\BlobClient;
 use AzureOss\Storage\Blob\BlobContainerClient;
+use AzureOss\Storage\Blob\Exceptions\BlobStorageException;
 use AzureOss\Storage\Blob\Exceptions\UnableToGenerateSasException;
 use AzureOss\Storage\Blob\Models\Blob;
 use AzureOss\Storage\Blob\Models\BlobProperties;
@@ -120,7 +121,7 @@ final class AzureBlobStorageAdapter implements ChecksumProvider, FilesystemAdapt
                 ->getBlobClient($this->prefixer->prefixPath($path))
                 ->upload($contents, $options);
         } catch (\Throwable $e) {
-            throw UnableToWriteFile::atLocation($path, previous: $e);
+            throw UnableToWriteFile::atLocation($path, self::exceptionReason($e), $e);
         }
     }
 
@@ -208,7 +209,7 @@ final class AzureBlobStorageAdapter implements ChecksumProvider, FilesystemAdapt
 
             return $result->content->getContents();
         } catch (\Throwable $e) {
-            throw UnableToReadFile::fromLocation($path, previous: $e);
+            throw UnableToReadFile::fromLocation($path, self::exceptionReason($e), $e);
         }
     }
 
@@ -227,7 +228,7 @@ final class AzureBlobStorageAdapter implements ChecksumProvider, FilesystemAdapt
 
             return $resource;
         } catch (\Throwable $e) {
-            throw UnableToReadFile::fromLocation($path, previous: $e);
+            throw UnableToReadFile::fromLocation($path, self::exceptionReason($e), $e);
         }
     }
 
@@ -238,7 +239,7 @@ final class AzureBlobStorageAdapter implements ChecksumProvider, FilesystemAdapt
                 ->getBlobClient($this->prefixer->prefixPath($path))
                 ->deleteIfExists();
         } catch (\Throwable $e) {
-            throw UnableToDeleteFile::atLocation($path, previous: $e);
+            throw UnableToDeleteFile::atLocation($path, self::exceptionReason($e), $e);
         }
     }
 
@@ -253,7 +254,7 @@ final class AzureBlobStorageAdapter implements ChecksumProvider, FilesystemAdapt
                 }
             }
         } catch (\Throwable $e) {
-            throw UnableToDeleteDirectory::atLocation($path, previous: $e);
+            throw UnableToDeleteDirectory::atLocation($path, self::exceptionReason($e), $e);
         }
     }
 
@@ -279,7 +280,7 @@ final class AzureBlobStorageAdapter implements ChecksumProvider, FilesystemAdapt
         try {
             return $this->fetchMetadata($path);
         } catch (\Throwable $e) {
-            throw UnableToRetrieveMetadata::mimeType($path, previous: $e);
+            throw UnableToRetrieveMetadata::mimeType($path, self::exceptionReason($e), $e);
         }
     }
 
@@ -288,7 +289,7 @@ final class AzureBlobStorageAdapter implements ChecksumProvider, FilesystemAdapt
         try {
             return $this->fetchMetadata($path);
         } catch (\Throwable $e) {
-            throw UnableToRetrieveMetadata::lastModified($path, previous: $e);
+            throw UnableToRetrieveMetadata::lastModified($path, self::exceptionReason($e), $e);
         }
     }
 
@@ -297,7 +298,7 @@ final class AzureBlobStorageAdapter implements ChecksumProvider, FilesystemAdapt
         try {
             return $this->fetchMetadata($path);
         } catch (\Throwable $e) {
-            throw UnableToRetrieveMetadata::lastModified($path, previous: $e);
+            throw UnableToRetrieveMetadata::lastModified($path, self::exceptionReason($e), $e);
         }
     }
 
@@ -310,6 +311,27 @@ final class AzureBlobStorageAdapter implements ChecksumProvider, FilesystemAdapt
             ->getProperties();
 
         return $this->normalizeBlob($path, $properties);
+    }
+
+    /**
+     * Builds the reason reported on a Flysystem exception.
+     *
+     * Flysystem exposes the cause of a failure through `reason()`, which is also the value
+     * `MountManager` forwards when it re-throws. A `BlobStorageException` carries the Azure error
+     * code - `BlobNotFound`, `AuthorizationPermissionMismatch`, `ServerBusy` and so on - which is
+     * what callers need to tell a missing blob apart from an authorization or throttling failure,
+     * so it is prefixed to the service message rather than left only on the previous exception.
+     *
+     * @param  \Throwable  $e  The exception raised by the Blob SDK.
+     * @return string The reason, prefixed with the Azure error code when one is available.
+     */
+    private static function exceptionReason(\Throwable $e): string
+    {
+        if ($e instanceof BlobStorageException && $e->errorCodeValue !== null) {
+            return $e->errorCodeValue.': '.$e->getMessage();
+        }
+
+        return $e->getMessage();
     }
 
     public function listContents(string $path, bool $deep): iterable
@@ -497,7 +519,7 @@ final class AzureBlobStorageAdapter implements ChecksumProvider, FilesystemAdapt
                 ->getBlobClient($this->prefixer->prefixPath($path))
                 ->getProperties();
         } catch (\Throwable $e) {
-            throw new UnableToProvideChecksum($e->getMessage(), $path, $e);
+            throw new UnableToProvideChecksum(self::exceptionReason($e), $path, $e);
         }
 
         $md5 = $properties->contentMD5;
