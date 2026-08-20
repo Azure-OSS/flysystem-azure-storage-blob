@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+No user-facing changes since `2.2.1`.
+
+## 2.2.1
+
 ### Changed
 
 - Flysystem exceptions raised by the adapter now carry a reason. Where the underlying failure is a `BlobStorageException`, the reason is prefixed with the Azure error code (for example `BlobNotFound`), so callers can distinguish a missing blob from an authorization or throttling failure without unwrapping `getPrevious()`.
