@@ -322,14 +322,18 @@ final class AzureBlobStorageAdapter implements ChecksumProvider, FilesystemAdapt
      * what callers need to tell a missing blob apart from an authorization or throttling failure,
      * so it is prefixed to the service message rather than left only on the previous exception.
      *
-     * @param  \Throwable  $e  The exception raised by the Blob SDK.
+     * @param  \Throwable  $e  The exception raised by the Blob SDK, possibly wrapped by Flysystem.
      * @return string The reason, prefixed with the Azure error code when one is available.
      */
     private static function exceptionReason(\Throwable $e): string
     {
-        if ($e instanceof BlobStorageException && $e->errorCodeValue !== null) {
-            return $e->errorCodeValue.': '.$e->getMessage();
-        }
+        $cause = $e;
+
+        do {
+            if ($cause instanceof BlobStorageException && $cause->errorCodeValue !== null) {
+                return $cause->errorCodeValue.': '.$cause->getMessage();
+            }
+        } while ($cause = $cause->getPrevious());
 
         return $e->getMessage();
     }
